@@ -58,3 +58,9 @@ def get_active_drivers():
 def assign_driver(order_id, driver_id):
     cursor.execute('UPDATE orders SET driver_id=?, status="accepted" WHERE order_id=?', (driver_id, order_id))
     conn.commit()
+def get_order_info(order_id):
+    cursor.execute('SELECT client_id, price FROM orders WHERE order_id=?', (order_id,))
+    row = cursor.fetchone()
+    if row:
+        return {'client_id': row[0], 'price': row[1]}
+    return None
