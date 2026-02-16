@@ -8,7 +8,21 @@ from flask import Flask
 
 # ===== Flask для Render (обязательно) =====
 app = Flask(__name__)
+# ===== ФУНКЦИЯ ДЛЯ ГЕНЕРАЦИИ ССЫЛКИ НА ОПЛАТУ =====
+YOOMONEY_WALLET = "4100119475243191"
 
+def get_payment_link(order_id, amount):
+    desc = f"Заказ такси №{order_id}"
+    label = f"order_{order_id}"
+    url = (f"https://yoomoney.ru/quickpay/confirm.xml?"
+           f"receiver={YOOMONEY_WALLET}&"
+           f"quickpay-form=shop&"
+           f"targets={desc}&"
+           f"paymentType=AC&"
+           f"sum={amount}&"
+           f"label={label}&"
+           f"successURL=https://t.me/my_taxi_333_bot")
+    return url
 @app.route('/')
 def home():
     return "Бот такси работает!"
@@ -179,11 +193,27 @@ def accept_order(message):
         if not user or user[1] != 'driver' or not user[5]:
             bot.send_message(driver_id, "❌ Вы не на линии или не водитель.")
             return
+        
         db.assign_driver(order_id, driver_id)
-        bot.send_message(driver_id, f"✅ Вы приняли заказ #{order_id}.")
-    except Exception as e:
-        bot.send_message(message.from_user.id, "❌ Ошибка.")
+        bot.send_message(driver_id, f"✅ Вы приняли заказ #{order_id}. Ожидаем оплату от клиента.")
 
+        # ---- НОВЫЙ КОД: отправка ссылки клиенту ----
+        # Нужно получить client_id и price из базы
+        order_info = db.get_order_info(order_id)  # эту функцию добавим в database.py
+        if order_info:
+            client_id = order_info['client_id']
+            price = order_info['price']
+            pay_url = get_payment_link(order_id, price)
+            bot.send_message(
+                client_id,
+                f"✅ Водитель найден!\n"
+                f"Для подтверждения заказа оплатите {price} руб.\n"
+                f"Ссылка для оплаты:\n{pay_url}"
+            )
+        # ---------------------------------------------
+
+    except Exception as e:
+        bot.send_message(message.from_user.id, "❌ Ошибка при принятии заказа.")
 # ===== Запуск =====
 if __name__ == "__main__":
     print("✅ Бот с Flask запущен!")
